@@ -1,3 +1,5 @@
 *.ncb
 *.suo
 *.user
+bin
+build
