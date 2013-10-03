@@ -44,6 +44,8 @@ int spheres[] = {
    0x7d7d8401   // (-3, -3, 4) r1
 };
 
+float clamp(float x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+
 struct vector
 {
     float x, y, z;
@@ -52,6 +54,7 @@ struct vector
     vector(float a, float b, float c) { x = a, y = b, z = c; }
 
     vector operator +(vector a) { return vector(x + a.x, y + a.y, z + a.z); }
+    vector operator -(vector a) { return vector(x - a.x, y - a.y, z - a.z); }
     vector operator *(float s) { return vector(x * s, y * s, z * s); }
 
     float operator ^(vector a) { return x * a.x + y * a.y + z * a.z; }
@@ -59,86 +62,103 @@ struct vector
     vector operator ~() { return *this * (1.f / sqrtf(*this ^ *this)); }
 
     vector lerp(vector a, float f) { return vector(x * f + a.x * (1 - f), y * f + a.y * (1 - f), z * f + a.z * (1 - f)); }
+
+    void set(float a, float b, float c) { x = a; y = b; z = c; }
+    void set(vector v) { x = v.x; y = v.y; z = v.z; }
 };
 
-vector hit(vector start, vector dir, int reflection_count)
+vector cam_pos(0, 0, 9);
+
+float hit(vector start, vector dir, int reflection_count, vector *colour)
 {
-    if (reflection_count == 0)
-        return vector(255, 0, 0);
+    const float FOG_RADIUS = 30.f;
+
+    if (reflection_count < 1)
+        return FOG_RADIUS;
+
+    float d = -1;
 
     vector a;
-    float r = -1;
-
-    vector sphere, new_start, new_dir;
+    vector intersection;
+    vector normal;
+    vector l, r;
+    vector light_pos(1, 12, 3);
     float radius;
 
     for (int i = 0; i < 7; i ++)
     {
-        sphere = vector((float)(spheres[i] >> 24 & 0xff) - 128, (float)(spheres[i] >> 16 & 0xff) - 128, (float)(spheres[i] >> 8 & 0xff) - 128);
+        vector sphere = vector((float)(spheres[i] >> 24 & 0xff) - 128, (float)(spheres[i] >> 16 & 0xff) - 128, (float)(spheres[i] >> 8 & 0xff) - 128);
         radius = spheres[i] & 0xff;
-        vector oc = (start + sphere * -1);
+        vector oc = (start - sphere);
         float loc = dir ^ oc;
-        float d = (loc * loc) - (oc ^ oc) + (radius * radius);
-        float d0 = -loc + sqrtf(d);
-        float d1 = -loc - sqrtf(d);
+        float t = (loc * loc) - (oc ^ oc) + (radius * radius);
+        float t0 = -loc + sqrtf(t);
+        float t1 = -loc - sqrtf(t);
 
-        if (d0 >= 0 || d1 >= 0) // We'e hit our sphere
+        if (t0 >= 0 || t1 >= 0) // We'e hit our sphere
         {
-            d = d0 < d1 ? d0 : d1;
-            if (r < 0 || d < r)
+            t = t0 < t1 ? t0 : t1;
+            if (d < 0 || t < d)
             {
-                r = d;
-                new_start = start + (dir * r);
-                new_dir = ~(new_start + sphere * -1);
+                d = t;
+                intersection = start + (dir * d);
+                normal = ~(intersection - sphere);
             }
         }
     }
 
-    if (r >= 0) // Reflection
+    if (d >= 0) // Reflection
     {
-        new_start = new_start + new_dir * 0.001f;
-        a = hit(new_start, new_dir, reflection_count - 1) * 0.8f;
+        hit(intersection + normal * 0.001f, normal, reflection_count - 1, &a);
+        a = a * 0.8f; // attenuate
+
+        // Specular
+        l = ~(light_pos - intersection);
+        r = ~(normal * (normal ^ l) * -2 + l);
+        float spec = pow(clamp(r ^ dir), 80) * 255;
+        a = a + vector(spec, spec, spec);
     }
     else
     {
-        vector p = vector(0, -4, 0);
-        vector n = vector(0, 1, 0);
-        r = ((p + start * -1) ^ n) / (dir ^ n);
+        normal = vector(0, 1, 0);
+        d = ((vector(0, -4, 0) - start) ^ normal) / (dir ^ normal); // Floor at -4
 
-        if (r > 0)
+        if (d > 0) // Floor
         {
-            vector i = start + dir * r; // Point of intersection
-            int s = abs((int)ceil(i.x)) % 2 == abs((int)ceil(i.z)) % 2; // Checkerboard 'texture'
-            a = vector(s ? 0 : 255, s ? 0 : 255, s ? 255 : 0);
+            intersection = start + dir * d; // Point of intersection
+            int s = abs((int)ceil(intersection.x)) % 2 == abs((int)ceil(intersection.z)) % 2; // Checkerboard 'texture'
+            a.set(s ? 0 : 255, s ? 0 : 255, s ? 255 : 0);
+            l = ~(light_pos - intersection);
+            float intensity = hit(intersection, l, 1, &r) < FOG_RADIUS ? 0.4 : 1;  // Trace for shadows - throw in the r vector since we don't care about the result of colour
+            a = a * (l ^ normal) * intensity; // Diffuse lighting
         }
-        else
+        else // Sky
         {
-            a = vector(255, 0, 0); // Mr Blue Sky
-            r = 20; // Otherwise we get into NaN shenanigans
+            a.set(255, 0, 0); // Mr Blue Sky
+            d = FOG_RADIUS; // Otherwise we get into NaN shenanigans
         }
     }
 
-    const float FOG_RADIUS = 24.f;
-    return a.lerp(vector(255, 0, 0), ((FOG_RADIUS - (r > FOG_RADIUS ? FOG_RADIUS : r)) / FOG_RADIUS));
+    colour->set(a.lerp(vector(128, 0, 0), ((FOG_RADIUS - (d > FOG_RADIUS ? FOG_RADIUS : d)) / FOG_RADIUS)));
+    return d;
 }
 
 int main(int argc, char **argv)
 {
     unsigned char data[512 * 512 * 3];
     unsigned char *ptr = data;
-    vector cam_pos(0, 0, 9);
-    vector cam_up(0, 1, 0);
     vector cam_dir(0, 0, -1);
+    vector colour;
 
     for (int i = 0; i < 512; i ++)
     {
         for (int j = 0; j < 512; j ++)
         {
             vector dir(cam_dir.x + (j - 256) * 0.005f, cam_dir.y + (i - 256) * 0.005f, cam_dir.z);
-            vector colour = hit(cam_pos, ~dir, 99);
-            *(ptr ++) = (unsigned char)colour.x;
-            *(ptr ++) = (unsigned char)colour.y;
-            *(ptr ++) = (unsigned char)colour.z;
+            hit(cam_pos, ~dir, 99, &colour);
+            *(ptr ++) = (unsigned char)(colour.x > 255 ? 255 : colour.x);
+            *(ptr ++) = (unsigned char)(colour.y > 255 ? 255 : colour.y);
+            *(ptr ++) = (unsigned char)(colour.z > 255 ? 255 : colour.z);
         }
     }
 
