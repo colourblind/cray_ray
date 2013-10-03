@@ -67,7 +67,7 @@ struct vector
     void set(vector v) { x = v.x; y = v.y; z = v.z; }
 };
 
-vector cam_pos(0, 0, 9);
+vector cam_pos(0, 0, 15);
 
 float hit(vector start, vector dir, int reflection_count, vector *colour)
 {
@@ -154,7 +154,7 @@ int main(int argc, char **argv)
     {
         for (int j = 0; j < 512; j ++)
         {
-            vector dir(cam_dir.x + (j - 256) * 0.005f, cam_dir.y + (i - 256) * 0.005f, cam_dir.z);
+            vector dir(cam_dir.x + (j - 256) * 0.0025f, cam_dir.y + (i - 256) * 0.0025f, cam_dir.z);
             hit(cam_pos, ~dir, 99, &colour);
             *(ptr ++) = (unsigned char)(colour.x > 255 ? 255 : colour.x);
             *(ptr ++) = (unsigned char)(colour.y > 255 ? 255 : colour.y);
