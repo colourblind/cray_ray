@@ -1,6 +1,6 @@
 #include <cstdio> // cray_ray - a teeny tiny obfuscated ray tracer
-#include <cmath>  // tom milsom | github.com/colourblind | monochromcy.net
-#include <cmath>  // ground-plane, multiple spheres, reflections, fog
+#include <cmath> // tom milsom | github.com/colourblind | monochromcy.net
+#include <cstdlib> // lighting, multiple spheres, reflections, fog
 
 unsigned char BMP_HEADER[] = { 
     0x42,   // BMP signature 
@@ -34,7 +34,7 @@ unsigned char DIB_HEADER[] = {
     0x00
 };
 
-int spheres[] = {
+int SPHERES[] = {
    0x80808003,  // (0, 0, 0) r3
    0x84838202,  // (4, 3, 2) r2
    0x79857c05,  // (-7, 5, -4) r5
@@ -45,6 +45,7 @@ int spheres[] = {
 };
 
 float clamp(float x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+float random() { return (float)rand() / RAND_MAX; }
 
 struct vector
 {
@@ -67,8 +68,6 @@ struct vector
     void set(vector v) { x = v.x; y = v.y; z = v.z; }
 };
 
-vector cam_pos(0, 0, 15);
-
 float hit(vector start, vector dir, int reflection_count, vector *colour)
 {
     const float FOG_RADIUS = 30.f;
@@ -87,8 +86,8 @@ float hit(vector start, vector dir, int reflection_count, vector *colour)
 
     for (int i = 0; i < 7; i ++)
     {
-        vector sphere = vector((float)(spheres[i] >> 24 & 0xff) - 128, (float)(spheres[i] >> 16 & 0xff) - 128, (float)(spheres[i] >> 8 & 0xff) - 128);
-        radius = spheres[i] & 0xff;
+        vector sphere = vector((float)(SPHERES[i] >> 24 & 0xff) - 128, (float)(SPHERES[i] >> 16 & 0xff) - 128, (float)(SPHERES[i] >> 8 & 0xff) - 128);
+        radius = SPHERES[i] & 0xff;
         vector oc = (start - sphere);
         float loc = dir ^ oc;
         float t = (loc * loc) - (oc ^ oc) + (radius * radius);
@@ -147,18 +146,24 @@ int main(int argc, char **argv)
 {
     unsigned char data[512 * 512 * 3];
     unsigned char *ptr = data;
+    vector cam_pos(0, 0, 15);
     vector cam_dir(0, 0, -1);
-    vector colour;
+    vector colour, acc;
 
-    for (int i = 0; i < 512; i ++)
+    for (int y = 0; y < 512; y ++)
     {
-        for (int j = 0; j < 512; j ++)
+        for (int x = 0; x < 512; x ++)
         {
-            vector dir(cam_dir.x + (j - 256) * 0.0025f, cam_dir.y + (i - 256) * 0.0025f, cam_dir.z);
-            hit(cam_pos, ~dir, 99, &colour);
-            *(ptr ++) = (unsigned char)(colour.x > 255 ? 255 : colour.x);
-            *(ptr ++) = (unsigned char)(colour.y > 255 ? 255 : colour.y);
-            *(ptr ++) = (unsigned char)(colour.z > 255 ? 255 : colour.z);
+            acc = vector();
+            for (int z = 0; z < 16; z ++)
+            {
+                vector dir(cam_dir.x + (x - 256 + random()) * 0.0025f, cam_dir.y + (y - 256 + random()) * 0.0025f, cam_dir.z);
+                hit(cam_pos, ~dir, 99, &colour);
+                acc = acc + colour * (1.f / 16);
+            }
+            *(ptr ++) = (unsigned char)(acc.x > 255 ? 255 : acc.x);
+            *(ptr ++) = (unsigned char)(acc.y > 255 ? 255 : acc.y);
+            *(ptr ++) = (unsigned char)(acc.z > 255 ? 255 : acc.z);
         }
     }
 
