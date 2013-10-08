@@ -68,9 +68,9 @@ struct vector
     void set(vector v) { x = v.x; y = v.y; z = v.z; }
 };
 
-float hit(vector start, vector dir, int reflection_count, vector *colour)
+float hit(vector origin, vector dir, int reflection_count, vector *colour)
 {
-    const float FOG_RADIUS = 30.f;
+    float FOG_RADIUS = 30.f;
 
     if (reflection_count < 1)
         return FOG_RADIUS;
@@ -84,11 +84,11 @@ float hit(vector start, vector dir, int reflection_count, vector *colour)
     vector light_pos(1, 12, 3);
     float radius;
 
-    for (int i = 0; i < 7; i ++)
+    for (int j = 0; j < 7; j ++)
     {
-        vector sphere = vector((float)(SPHERES[i] >> 24 & 0xff) - 128, (float)(SPHERES[i] >> 16 & 0xff) - 128, (float)(SPHERES[i] >> 8 & 0xff) - 128);
-        radius = SPHERES[i] & 0xff;
-        vector oc = (start - sphere);
+        vector sphere = vector((float)(SPHERES[j] >> 24 & 0xff) - 128, (float)(SPHERES[j] >> 16 & 0xff) - 128, (float)(SPHERES[j] >> 8 & 0xff) - 128);
+        radius = SPHERES[j] & 0xff;
+        vector oc = (origin - sphere);
         float loc = dir ^ oc;
         float t = (loc * loc) - (oc ^ oc) + (radius * radius);
         float t0 = -loc + sqrtf(t);
@@ -100,7 +100,7 @@ float hit(vector start, vector dir, int reflection_count, vector *colour)
             if (d < 0 || t < d)
             {
                 d = t;
-                intersection = start + (dir * d);
+                intersection = origin + (dir * d);
                 normal = ~(intersection - sphere);
             }
         }
@@ -120,11 +120,11 @@ float hit(vector start, vector dir, int reflection_count, vector *colour)
     else
     {
         normal = vector(0, 1, 0);
-        d = ((vector(0, -4, 0) - start) ^ normal) / (dir ^ normal); // Floor at -4
+        d = ((vector(0, -4, 0) - origin) ^ normal) / (dir ^ normal); // Floor at -4
 
         if (d > 0) // Floor
         {
-            intersection = start + dir * d; // Point of intersection
+            intersection = origin + dir * d; // Point of intersection
             int s = abs((int)ceil(intersection.x)) % 2 == abs((int)ceil(intersection.z)) % 2; // Checkerboard 'texture'
             a.set(s ? 0 : 255, s ? 0 : 255, s ? 255 : 0);
             l = ~(light_pos - intersection);
@@ -142,11 +142,10 @@ float hit(vector start, vector dir, int reflection_count, vector *colour)
     return d;
 }
 
-int main(int argc, char **argv)
+void main()
 {
-    unsigned char data[512 * 512 * 3];
+    unsigned char data[786432]; // 512 * 512 * 3
     unsigned char *ptr = data;
-    vector cam_pos(0, 0, 15);
     vector cam_dir(0, 0, -1);
     vector colour, acc;
 
@@ -158,7 +157,7 @@ int main(int argc, char **argv)
             for (int z = 0; z < 16; z ++)
             {
                 vector dir(cam_dir.x + (x - 256 + random()) * 0.0025f, cam_dir.y + (y - 256 + random()) * 0.0025f, cam_dir.z);
-                hit(cam_pos, ~dir, 99, &colour);
+                hit(vector(0, 0, 15), ~dir, 99, &colour); // vector(0, 0, 15) is our camera position
                 acc = acc + colour * (1.f / 16);
             }
             *(ptr ++) = (unsigned char)(acc.x > 255 ? 255 : acc.x);
@@ -168,11 +167,9 @@ int main(int argc, char **argv)
     }
 
     // Save BMP
-    FILE *f = fopen("out.bmp", "wb");
+    FILE *f = fopen("o.bmp", "wb");
     fwrite(BMP_HEADER, 14, 1, f);
     fwrite(DIB_HEADER, 12, 1, f);
-    fwrite(data, 512 * 512 * 3, 1, f);
+    fwrite(data, 786432, 1, f);
     fclose(f);
-
-    return 0;
 }
