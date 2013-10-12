@@ -142,7 +142,7 @@ float hit(vector origin, vector dir, int reflection_count, vector *colour)
     return d;
 }
 
-void main()
+int main()
 {
     unsigned char data[786432]; // 512 * 512 * 3
     unsigned char *ptr = data;
