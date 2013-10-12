@@ -20,7 +20,7 @@ sqrtf(u);if(g>=0||w>=0){u=g<w?g:w;if(d<0||u<d){d=u;t=o+(k*d);n=~(t-l);}}}if(d
 80)*255;a=a+v(w,w,w);}else{n=v(0,1,0);d=((v(0,-4,0)-o)^n)/(k^n);if(d>0){t=o+k*
 d;j=abs((int)ceil(t.x))%2==abs((int)ceil(t.z))%2;a.s(j?0:255,j?0:255,j?255:0
 );l=~(p-t);w=H(t,l,1,&r)<F?0.4:1;a=a*(l^n)*w;}else{a.s(255,0,0);d=F;}}c->s(a.
-lerp(v(128,0,0),((F-(d>F?F:d))/F)));re d;}void main(){uc d[786432],*p=d;v b(0,
+lerp(v(128,0,0),((F-(d>F?F:d))/F)));re d;}i main(){uc d[786432],*p=d;v b(0,
 0,-1),c,a,e;i x,y,z;for(y=0;y<512;y++){for (x=0;x<512;x++){a=v();for(z=0;z<16;
 z++){e=v(b.x+(x-256+R())*0.0025f,b.y+(y-256+R())*0.0025f,b.z);H(v(0,0,15),~e,
 99,&c);a=a+c*(1.f/16);}*(p++)=(uc)(a.x>255?255:a.x);*(p++)=(uc)(a.y>255?255:a.
